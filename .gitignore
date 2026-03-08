@@ -1,0 +1,18 @@
+# Terraform working directory and state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Local variable files (keep only examples in git)
+*.tfvars
+!*.tfvars.example
+!**/templates/*.tfvars.example
+
+# Sensitive key material
+*.pem
+*.ppk
+
+# Local command output artifacts
+*.tfplan

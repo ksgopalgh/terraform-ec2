@@ -1,0 +1,52 @@
+aws_region        = "ca-central-1"
+aws_profile       = "strln"
+target_account_id = "886427957493"
+
+name_prefix = "win-automation"
+
+use_existing_network = true
+existing_vpc_id      = "vpc-xxxxxxxxxxxxxxxxx"
+existing_subnet_id   = "subnet-xxxxxxxxxxxxxxxxx"
+
+instance_type    = "t3.medium"
+root_volume_size = 100
+
+# Global defaults
+access_mode              = "ssm" # ssm | rdp | both
+create_key_pair          = false
+create_eip               = true
+allow_eip_reassociation  = false
+enable_rdp               = false # legacy compatibility flag
+rdp_allowed_cidrs        = []
+rdp_allowed_ipv6_cidrs   = []
+create_ssm_vpc_endpoints = false
+
+# Bootstrap package controls
+install_choco_packages      = true
+choco_packages              = ["googlechrome", "firefox", "nodejs-lts", "git", "vcredist140", "webview2-runtime"]
+playwright_version          = "latest"
+install_playwright_browsers = true
+playwright_browsers         = ["chromium", "firefox"]
+
+# Instances map (all instances in a single run)
+instances = {
+  windows01 = {
+    access_mode      = "ssm"
+    create_eip       = true
+    create_key_pair  = false
+    # key_pair_name  = "ExistingTeamKeyPairName"
+    # existing_eip_allocation_id = "eipalloc-xxxxxxxxxxxxxxxxx"
+    # allow_eip_reassociation    = true
+    tags = {
+      Service = "landers"
+    }
+  }
+}
+
+primary_instance_key = "windows01"
+
+tags = {
+  Owner       = "team-owner"
+  Environment = "qa"
+  ManagedBy   = "terraform"
+}

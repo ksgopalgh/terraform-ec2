@@ -1,0 +1,112 @@
+<powershell>
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$logDir  = "C:\bootstrap"
+$logFile = Join-Path $logDir "bootstrap.log"
+New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+
+function Write-Log {
+  param([string]$Message)
+  $ts = Get-Date -Format "yyyy-MM-ddTHH:mm:ssK"
+  "$ts $Message" | Out-File -FilePath $logFile -Append -Encoding utf8
+}
+
+Write-Log "Bootstrap started."
+
+# 1) Ensure SSM service is running.
+$ssmService = Get-Service -Name AmazonSSMAgent -ErrorAction SilentlyContinue
+if ($null -ne $ssmService) {
+  Set-Service -Name AmazonSSMAgent -StartupType Automatic
+  if ($ssmService.Status -ne "Running") {
+    Start-Service -Name AmazonSSMAgent
+  }
+  Write-Log "AmazonSSMAgent is present and running."
+} else {
+  Write-Log "AmazonSSMAgent not found on image."
+}
+
+# 2) Install Chocolatey if missing.
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+  Write-Log "Installing Chocolatey."
+  Set-ExecutionPolicy Bypass -Scope Process -Force
+  Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+}
+
+$choco = "$env:ProgramData\chocolatey\bin\choco.exe"
+if (-not (Test-Path $choco)) {
+  throw "Chocolatey installation failed."
+}
+
+& $choco feature enable -n allowGlobalConfirmation | Out-Null
+
+# 3) Install browser/runtime dependencies for automation.
+if ("${install_choco_packages}" -eq "true") {
+  $packagesJson = @'
+${choco_packages_json}
+'@
+  $packages = @($packagesJson | ConvertFrom-Json)
+  foreach ($pkg in $packages) {
+    Write-Log "Installing package: $pkg"
+    & $choco install $pkg --no-progress --limit-output
+  }
+} else {
+  Write-Log "Skipping Chocolatey package installation (install_choco_packages=false)."
+}
+
+# Refresh PATH for this session.
+$machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+$userPath    = [Environment]::GetEnvironmentVariable("Path", "User")
+$env:Path = "$machinePath;$userPath"
+
+# 4) Install Playwright.
+$npmCmd = "$env:ProgramFiles\nodejs\npm.cmd"
+$npxCmd = "$env:ProgramFiles\nodejs\npx.cmd"
+
+if (-not (Test-Path $npmCmd)) {
+  throw "npm was not found at $npmCmd"
+}
+
+$playwrightVersion = "${playwright_version}"
+if ($playwrightVersion -eq "" -or $playwrightVersion -eq "latest") {
+  Write-Log "Installing latest Playwright globally."
+  & $npmCmd install -g playwright
+} else {
+  Write-Log "Installing Playwright version $playwrightVersion globally."
+  & $npmCmd install -g "playwright@$playwrightVersion"
+}
+
+if ("${install_playwright_browsers}" -eq "true") {
+  $pwBrowsersJson = @'
+${playwright_browsers_json}
+'@
+  $pwBrowsers = @($pwBrowsersJson | ConvertFrom-Json)
+  if ($pwBrowsers.Count -gt 0) {
+    $pwBrowserArgs = $pwBrowsers -join " "
+    Write-Log "Installing Playwright browser binaries: $pwBrowserArgs"
+    & $npxCmd playwright install $pwBrowsers
+  } else {
+    Write-Log "playwright_browsers is empty; skipping browser binary installation."
+  }
+}
+
+# 5) Write tooling/version artifact.
+$chromePath  = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+$firefoxPath = "C:\Program Files\Mozilla Firefox\firefox.exe"
+$nodeExe     = "$env:ProgramFiles\nodejs\node.exe"
+
+$versions = [ordered]@{
+  timestamp  = (Get-Date).ToString("o")
+  hostname   = $env:COMPUTERNAME
+  node       = if (Test-Path $nodeExe) { (& $nodeExe -v) } else { "not-found" }
+  npm        = if (Test-Path $npmCmd) { (& $npmCmd -v) } else { "not-found" }
+  playwright = if (Test-Path $npxCmd) { (& $npxCmd playwright --version) } else { "not-found" }
+  chrome     = if (Test-Path $chromePath) { (Get-Item $chromePath).VersionInfo.ProductVersion } else { "not-found" }
+  firefox    = if (Test-Path $firefoxPath) { (Get-Item $firefoxPath).VersionInfo.ProductVersion } else { "not-found" }
+}
+
+$versions | ConvertTo-Json | Out-File -FilePath (Join-Path $logDir "tooling_versions.json") -Encoding utf8
+Write-Log "Bootstrap completed."
+</powershell>
+<persist>false</persist>
