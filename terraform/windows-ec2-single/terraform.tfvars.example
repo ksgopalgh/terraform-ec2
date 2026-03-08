@@ -1,0 +1,80 @@
+aws_region         = "ca-central-1"
+aws_profile        = "strln"
+target_account_id  = "886427957493"
+
+name_prefix = "win-playwright"
+
+# Restricted org accounts: prefer existing network.
+use_existing_network = true
+existing_vpc_id      = "vpc-xxxxxxxxxxxxxxxxx"
+existing_subnet_id   = "subnet-xxxxxxxxxxxxxxxxx"
+# existing_vpc_ipv6_cidr = "2600:xxxx:xxxx::/56"
+
+# Global defaults for all instances (can be overridden per instance below).
+instance_type    = "t3.large"
+root_volume_size = 100
+# key_pair_name  = "IntegrationVM_KP"
+create_key_pair = false
+access_mode      = "ssm" # allowed: ssm, rdp, both
+
+# Keep RDP disabled by default (SSM-first).
+enable_rdp              = false
+rdp_allowed_cidrs       = []
+rdp_allowed_ipv6_cidrs  = []
+
+# Set true if you want private SSM endpoints in your VPC.
+create_ssm_vpc_endpoints = false
+
+# Global EIP default strategy:
+# - create_eip = true: create one EIP per instance unless overridden.
+# - create_eip = false + existing_eip_allocation_id: reuse one existing EIP for single-instance only.
+create_eip = false
+# existing_eip_allocation_id = "eipalloc-xxxxxxxxxxxxxxxxx"
+allow_eip_reassociation = false # default safe mode: create new EIP if existing one is already in use
+
+playwright_version          = "latest"
+install_playwright_browsers = true
+install_choco_packages      = true
+choco_packages = [
+  "googlechrome",
+  "firefox",
+  "nodejs-lts",
+  "git",
+  "vcredist140",
+  "webview2-runtime"
+]
+playwright_browsers = ["chromium", "firefox"]
+
+# Multi-instance scale configuration.
+instances = {
+  windows01 = {
+    access_mode                = "both"
+    existing_eip_allocation_id = "eipalloc-xxxxxxxxxxxxxxxxx"
+    create_key_pair            = true
+    # key_pair_name            = "IntegrationVM_KP"
+    # create_eip = false
+    # enable_rdp = true # legacy compatibility flag, forces mode to "both"
+    # rdp_allowed_cidrs = ["203.0.113.10/32"]
+    tags = {
+      Role = "automation-primary"
+    }
+  }
+
+  windows02 = {
+    instance_type = "t3.xlarge"
+    create_eip    = true
+    access_mode   = "ssm"
+    # key_pair_name = "IntegrationVM_KP"
+    tags = {
+      Role = "automation-secondary"
+    }
+  }
+}
+
+# Optional: choose which instance is used in legacy single-value outputs.
+primary_instance_key = "windows01"
+
+tags = {
+  Owner      = "ksgopal"
+  CostCenter = "qa-automation"
+}
