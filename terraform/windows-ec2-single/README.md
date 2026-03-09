@@ -4,6 +4,12 @@ This Terraform stack now supports provisioning **multiple Windows EC2 instances 
 
 It also supports runtime account/region selection and preserves single-instance compatibility outputs.
 
+## Safety Defaults
+
+- `prevent_instance_destroy = true` (default) blocks accidental EC2 destroy/replace operations.
+- If Terraform needs replacement, apply fails instead of deleting the running instance.
+- Set `prevent_instance_destroy = false` only for planned replacement/decommission windows.
+
 ## Team Templates
 
 - Team baseline template: `templates/team-base.tfvars.example`
@@ -261,7 +267,9 @@ install_playwright_browsers = false
 
 ## State Migration (Existing Single-Instance Users)
 
-If you already deployed with the old single-instance resource addresses, move state once before apply to avoid recreation:
+Legacy `moved` blocks are included for the common single-instance to `windows01` migration path.
+
+If your historical state uses different addresses, move state once before apply to avoid recreation:
 
 ```bash
 terraform state mv 'aws_instance.windows' 'aws_instance.windows["windows01"]'

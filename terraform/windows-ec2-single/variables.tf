@@ -88,6 +88,12 @@ variable "root_volume_size" {
   default     = 100
 }
 
+variable "prevent_instance_destroy" {
+  description = "Safety guard. When true, Terraform blocks any destroy/replace action for existing EC2 instances."
+  type        = bool
+  default     = true
+}
+
 variable "key_pair_name" {
   description = "Default existing EC2 key pair name. Required only if you want Windows password retrieval."
   type        = string

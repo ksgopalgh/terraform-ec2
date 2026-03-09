@@ -34,6 +34,28 @@ data "aws_ami" "windows" {
   }
 }
 
+# Legacy state migration guards:
+# these auto-map older single-instance addresses to the multi-instance windows01 key.
+moved {
+  from = aws_instance.windows
+  to   = aws_instance.windows["windows01"]
+}
+
+moved {
+  from = aws_security_group.instance[0]
+  to   = aws_security_group.instance["windows01"]
+}
+
+moved {
+  from = aws_eip_association.windows[0]
+  to   = aws_eip_association.windows["windows01"]
+}
+
+moved {
+  from = aws_eip.windows[0]
+  to   = aws_eip.windows["windows01"]
+}
+
 locals {
   az = var.availability_zone != null ? var.availability_zone : data.aws_availability_zones.available.names[0]
 
@@ -417,6 +439,7 @@ resource "aws_instance" "windows" {
   associate_public_ip_address = true
   ipv6_address_count          = each.value.assign_ipv6_address_count
   get_password_data           = each.value.create_key_pair || each.value.key_pair_name != null
+  disable_api_termination     = var.prevent_instance_destroy
 
   user_data = templatefile("${path.module}/user_data.ps1.tftpl", {
     install_choco_packages      = var.install_choco_packages

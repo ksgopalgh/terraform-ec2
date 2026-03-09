@@ -56,6 +56,7 @@ Note:
 - `access_mode = "ssm"`: SSM only
 - `access_mode = "rdp"`: RDP only
 - `access_mode = "both"`: SSM + RDP
+- Keep `prevent_instance_destroy = true` in team/base vars to block accidental EC2 deletion or replacement.
 
 RDP:
 - Username: `Administrator`
